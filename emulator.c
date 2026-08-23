@@ -23,6 +23,9 @@
 #define SPRITE_SIZE (16)
 #define SCALE (10)
 
+#define START_ADDRESS 0x200
+#define MAX_ROM_NAME 32
+
 //INSTRUCTION NAMES
 #define CLS 0x00E0
 #define RET 0x00EE
@@ -36,6 +39,31 @@
 #define LD_X_IM 0x6000
 #define ADD_X_IM 0x7000
 #define LD_X_Y 0x8000
+#define OR_X_Y 0x8001
+#define AND_X_Y 0x8002
+#define XOR_X_Y 0x8003
+#define ADD_X_Y 0x8004
+#define SUB_X_Y 0x8005
+#define SHR_X_Y 0x8006
+#define SUBN_X_Y 0x8007
+#define SHL_X_Y 0x800E
+#define SNE_X_Y 0x9000
+#define LD_I_IM 0xA000
+#define JP_V0_IM 0xB000
+#define RND_X 0xC000
+#define DRW_X_Y_N 0xD000 
+#define SKP_X 0xE09E 
+#define SKNP_X 0xE0A1 
+#define LD_X_DT 0xF007
+#define LD_X_KEY 0xF00A 
+#define LD_DT_X 0xF015
+#define LD_ST_X 0xF018
+#define ADD_I_X 0xF01E
+#define LD_F_X 0xF029 
+#define LD_B_X 0xF033
+#define SA_I_X 0xF055
+#define LA_X_I 0xF065
+
 
 
 typedef unsigned char BYTE;
@@ -123,6 +151,13 @@ void initialize(CPU *cpu,MEMORY *mem,BYTE *screen){
 
 }
 
+static const BYTE keymap[16] = {
+    0x61, 0x62, 0x63, 0x64,
+    0x51, 0x57, 0x45, 0x52,
+    0x41, 0x53, 0x44, 0x46,
+    0x5A, 0x58, 0x43, 0x56
+};
+
 WORD fetch(CPU *cpu,MEMORY *mem){
     WORD instruction;
     if(cpu->PC < 0xFFF){
@@ -184,10 +219,10 @@ void execute(CPU *cpu,MEMORY *memory,WORD instruction){
         BYTE y = (instruction & 0x00F0) >> 4;
         if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
             if(cpu->V[x] == cpu->V[y]){
-                cpu->SP+=2;
+                cpu->PC+=2;
             }
         }
-    }else if((instruction & 0xF000) == LD_X_IM){
+    }else if((instruction & 0xF000) == LD_X_IM){ 
         BYTE k = (instruction & 0x0F00) >> 8;
         if(k >= 0 && k <= 16){  
             cpu->V[k] = (instruction & 0x00FF);
@@ -204,6 +239,202 @@ void execute(CPU *cpu,MEMORY *memory,WORD instruction){
         if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
             cpu->V[x] = cpu->V[y];
         }
+    }else if((instruction & 0xF00F) == OR_X_Y){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        BYTE y = (instruction & 0x00F0) >> 4;
+        if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
+            cpu->V[x] = cpu->V[x] | cpu->V[y];
+        }
+    }else if((instruction & 0xF00F) == AND_X_Y){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        BYTE y = (instruction & 0x00F0) >> 4;
+        if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
+            cpu->V[x] = cpu->V[x] & cpu->V[y];
+        }
+    }else if((instruction & 0xF00F) == XOR_X_Y){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        BYTE y = (instruction & 0x00F0) >> 4;
+        if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
+            cpu->V[x] = cpu->V[x] ^ cpu->V[y];
+        }
+    }else if((instruction & 0xF00F) == ADD_X_Y){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        BYTE y = (instruction & 0x00F0) >> 4;
+        if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
+            cpu->V[x] = cpu->V[x] + cpu->V[y];
+            if(cpu->V[x] + cpu->V[y] > 255){
+                cpu->V[15] = 1;
+            }else{
+                cpu->V[15] = 0;
+            }
+        }
+    }else if((instruction & 0xF00F) == SUB_X_Y){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        BYTE y = (instruction & 0x00F0) >> 4;
+        if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
+            cpu->V[x] = cpu->V[x] - cpu->V[y];
+            if(cpu->V[x] > cpu->V[y]){
+                cpu->V[15] = 1;
+            }else{
+                cpu->V[15] = 0;
+            }
+        }
+    }else if((instruction & 0xF00F) == SHR_X_Y){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        if((x >= 0 && x <= 16)){
+            cpu->V[x] =  cpu->V[x] >> 1;
+            if((cpu->V[x] & 0x0001) == 1){
+                cpu->V[15] = 1;
+
+            }else{
+                cpu->V[15] = 0;
+            }
+        }
+    }else if((instruction & 0xF00F) == SUBN_X_Y){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        BYTE y = (instruction & 0x00F0) >> 4;
+        if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
+            cpu->V[x] = cpu->V[y] - cpu->V[x];
+            if(cpu->V[y] > cpu->V[x]){
+                cpu->V[15] = 1;
+            }else{
+                cpu->V[15] = 0;
+            }
+        }
+    }else if((instruction & 0xF00F) == SHL_X_Y){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        if((x >= 0 && x <= 16)){
+            cpu->V[x] = cpu->V[x] << 1;
+            if((cpu->V[x] & 0x8000) == 1){
+                cpu->V[15] = 1;
+            }else{
+                cpu->V[15] = 0;
+            }
+        } 
+    }else if((instruction & 0xF000) == SNE_X_Y){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        BYTE y = (instruction & 0x00F0) >> 4;
+        if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
+            if(cpu->V[x] != cpu->V[y]){
+                cpu->PC += 2;
+            }
+        }
+    }else if((instruction & 0xF000) == LD_I_IM){
+        cpu->I = instruction & 0x0FFF;
+    }else if((instruction & 0xF000) == JP_V0_IM){
+        cpu->PC = (instruction & 0x0FFF) + cpu->V[0];
+    }else if((instruction & 0xF000) == RND_X){
+        BYTE x = (instruction & 0x0F00) >> 8;
+         if((x >= 0 && x <= 16)){
+            BYTE rnd_num = rand() % 256;
+            cpu->V[x] = rnd_num & (instruction & 0x00FF);
+         }
+    }else if((instruction & 0xF0FF) == LD_X_DT){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        if((x >= 0 && x <= 16)){
+            cpu->V[x] = cpu->Vdelay;
+        }
+    }else if((instruction & 0xF0FF) == LD_DT_X){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        if((x >= 0 && x <= 16)){
+            cpu->Vdelay = cpu->V[x];
+        }
+    }else if((instruction & 0xF0FF) == LD_ST_X){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        if((x >= 0 && x <= 16)){
+            cpu->Vsound = cpu->V[x];
+        }
+    }else if((instruction & 0xF0FF) == ADD_I_X){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        if((x >= 0 && x <= 16)){
+            cpu->I += cpu->V[x];
+        }
+    }else if((instruction & 0xF0FF) == LD_B_X){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        if((x >= 0 && x <= 16) && (cpu->I >= 200)){
+            //Hundreds at cpu->I
+            memory->memory[cpu->I] = cpu->V[x] / 100;
+            //Tens at cpu->I+1
+            memory->memory[cpu->I+1] = (cpu->V[x] / 10)%10;
+            //Ones at cpu->I+2
+            memory->memory[cpu->I+2] = cpu->V[x]%10;
+        }
+    }else if((instruction & 0xF0FF) == SA_I_X){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        if((x >= 0 && x <= 16) && (cpu->I >= 200)){
+            for(int i=0; i<x; i++){
+                memory->memory[cpu->I+i] = cpu->V[i];
+            }
+        }
+    }else if((instruction & 0xF0FF) == LA_X_I){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        if((x >= 0 && x <= 16) && (cpu->I >= 200)){
+            for(int i=0; i<x; i++){
+                cpu->V[i] = memory->memory[cpu->I+i] ;
+            }
+        }
+    }else if((instruction & 0xF0FF) == LD_F_X){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        if((x >= 0 && x <= 16)){
+            cpu->I = cpu->V[x] * 5;
+        }
+    }else if((instruction & 0xF000) == DRW_X_Y_N){
+        BYTE reg_x = (instruction & 0x0F00) >> 8;
+        BYTE reg_y = (instruction & 0x00F0) >> 4;
+
+        BYTE start_x = cpu->V[reg_x];
+        BYTE start_y = cpu->V[reg_y];
+
+        BYTE height = instruction & 0x000F;
+
+        cpu->V[15] = 0;
+
+        for (int row = 0; row < height; row++) {
+            BYTE sprite_byte = memory->memory[cpu->I + row];
+            
+            for (int col = 0; col < 8; col++) {
+
+                if ((sprite_byte & (0x80 >> col)) != 0) {
+                    
+                    int screen_x = (start_x + col) % 64;
+                    int screen_y = (start_y + row) % 32;
+                    int pixel_index = screen_x + (screen_y * 64);
+                    
+
+                    if (screen[pixel_index] == 1) {
+                        cpu->V[15] = 1; 
+                    }
+                    
+                    screen[pixel_index] ^= 1;
+                }
+            }
+        }
+    }else if((instruction & 0xF0FF) == SKP_X){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        if((x >= 0 && x <= 16)){
+            if((GetAsyncKeyState(cpu->V[x]) & 0xF000) >= 0x8000){
+                cpu->PC+=2;
+            }
+        }
+    }else if((instruction & 0xF0FF) == SKNP_X){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        if((x >= 0 && x <= 16)){
+            if((GetAsyncKeyState(cpu->V[x]) & 0xF000) < 0x8000){
+                cpu->PC+=2;
+            }
+        }
+    }else if((instruction & LD_X_KEY)){
+        BYTE x = (instruction & 0x0F00) >> 8;
+        if((x >= 0 && x <= 16)){
+            for (int i = 0; i < 16; i++) {
+                if (GetAsyncKeyState(keymap[i]) & 0x8000) {
+                    cpu->V[x] = keymap[i];
+                    break;
+                }
+            }
+
+        }
+        
     }
 }
 
@@ -262,7 +493,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 
 int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR lpCmdLine, int nCmdShow){
 
-
+    srand(time(NULL));
 
 
     const char CLASS_NAME[] = "CHIP8_Window_Class";
@@ -325,9 +556,65 @@ int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR lpCmdLine, 
     // screen[5 + (5 * 64)] = 1;                             
     // screen[60 + (25 * 64)] = 1;
 
-    //   mem.memory[200] = 0x82;
-    //   mem.memory[201] = 0x11;
+    
+    
+    FILE *file = fopen(__argv[1], "rb");
 
+    if (file == NULL) {
+        MessageBoxA(
+        NULL,
+        "Error while reading ROM!",
+        "CHIP-8",
+        MB_OK | MB_ICONERROR
+    );
+        msg.message = WM_QUIT;
+    } else {
+        char buffer[256];
+
+        sprintf_s(buffer, sizeof(buffer),
+                "ROM: %s",
+                __argv[1]);
+
+        MessageBoxA(NULL, buffer, "CHIP-8", MB_OK);
+        size_t bytesRead = fread(
+        &mem.memory[START_ADDRESS],
+        1,
+        sizeof(mem.memory) - START_ADDRESS,
+        file
+    );
+
+    fclose(file);
+
+    printf("Loaded %zu bytes\n", bytesRead);
+}
+
+
+// Program starts at 0x200
+// mem.memory[0x200] = 0x00;
+// mem.memory[0x201] = 0xE0;  // CLS
+
+// mem.memory[0x202] = 0x60;
+// mem.memory[0x203] = 0x05;  // V0 = 5
+
+// mem.memory[0x204] = 0x61;
+// mem.memory[0x205] = 0x05;  // V1 = 5
+
+// mem.memory[0x206] = 0xA3;
+// mem.memory[0x207] = 0x00;  // I = 0x300
+
+// mem.memory[0x208] = 0xD0;
+// mem.memory[0x209] = 0x15;  // Draw 5 bytes
+
+// mem.memory[0x20A] = 0x12;
+// mem.memory[0x20B] = 0x0A;  // JP 0x208
+
+
+// // Sprite at 0x300
+// mem.memory[0x300] = 0xF0;
+// mem.memory[0x301] = 0x90;
+// mem.memory[0x302] = 0x90;
+// mem.memory[0x303] = 0x90;
+// mem.memory[0x304] = 0xF0;
 
     while(!quit){
 
