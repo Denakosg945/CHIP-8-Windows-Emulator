@@ -183,8 +183,8 @@ void execute(CPU *cpu,MEMORY *memory,WORD instruction){
         clrDisplay();
     }else if(instruction == RET){
         if(cpu->SP > 0x0){
-            cpu->PC = cpu->SP;
-            cpu->SP -= 1;
+            cpu->PC = cpu->STACK[cpu->SP];
+            cpu->SP--;
         }
     //Get only the first 4 bits and if they are equal with a Call select the branch
     }else if((instruction & 0xF000) == JP ){
@@ -200,7 +200,7 @@ void execute(CPU *cpu,MEMORY *memory,WORD instruction){
     }else if((instruction & 0xF000) == SE_X_IM){
         //Check if the second hex num (register num) is valid
         BYTE k = (instruction & 0x0F00) >> 8;
-        if(k >= 0 && k <= 16){
+        if(k >= 0 && k < 16){
             if(cpu->V[k] == (instruction & 0x00FF)){
                 cpu->PC+=2;
             }
@@ -208,7 +208,7 @@ void execute(CPU *cpu,MEMORY *memory,WORD instruction){
     }else if((instruction & 0xF000) == SNE_X_IM){
         //Check if the second hex num (register num) is valid
         BYTE k = (instruction & 0x0F00) >> 8;
-        if(k >= 0 && k <= 16){
+        if(k >= 0 && k < 16){
             if(cpu->V[k] != (instruction & 0x00FF)){
                 cpu->PC+=2;
             }
@@ -217,50 +217,50 @@ void execute(CPU *cpu,MEMORY *memory,WORD instruction){
         //Check if the register indeces are in the valid range
         BYTE x = (instruction & 0x0F00) >> 8;
         BYTE y = (instruction & 0x00F0) >> 4;
-        if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
+        if((x >= 0 && x < 16) && (y >= 0 && y < 16)){
             if(cpu->V[x] == cpu->V[y]){
                 cpu->PC+=2;
             }
         }
     }else if((instruction & 0xF000) == LD_X_IM){ 
         BYTE k = (instruction & 0x0F00) >> 8;
-        if(k >= 0 && k <= 16){  
+        if(k >= 0 && k < 16){  
             cpu->V[k] = (instruction & 0x00FF);
         }
     }else if((instruction & 0xF000) == ADD_X_IM){
         BYTE k = (instruction & 0x0F00) >> 8;
-        if(k >= 0 && k <= 16){  
+        if(k >= 0 && k < 16){  
             cpu->V[k] += (instruction & 0x00FF);
         }
     }else if((instruction & 0xF00F) == LD_X_Y){
         //Check if the register indeces are in the valid range
         BYTE x = (instruction & 0x0F00) >> 8;
         BYTE y = (instruction & 0x00F0) >> 4;
-        if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
+        if((x >= 0 && x < 16) && (y >= 0 && y < 16)){
             cpu->V[x] = cpu->V[y];
         }
     }else if((instruction & 0xF00F) == OR_X_Y){
         BYTE x = (instruction & 0x0F00) >> 8;
         BYTE y = (instruction & 0x00F0) >> 4;
-        if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
+        if((x >= 0 && x < 16) && (y >= 0 && y < 16)){
             cpu->V[x] = cpu->V[x] | cpu->V[y];
         }
     }else if((instruction & 0xF00F) == AND_X_Y){
         BYTE x = (instruction & 0x0F00) >> 8;
         BYTE y = (instruction & 0x00F0) >> 4;
-        if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
+        if((x >= 0 && x < 16) && (y >= 0 && y < 16)){
             cpu->V[x] = cpu->V[x] & cpu->V[y];
         }
     }else if((instruction & 0xF00F) == XOR_X_Y){
         BYTE x = (instruction & 0x0F00) >> 8;
         BYTE y = (instruction & 0x00F0) >> 4;
-        if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
+        if((x >= 0 && x < 16) && (y >= 0 && y < 16)){
             cpu->V[x] = cpu->V[x] ^ cpu->V[y];
         }
     }else if((instruction & 0xF00F) == ADD_X_Y){
         BYTE x = (instruction & 0x0F00) >> 8;
         BYTE y = (instruction & 0x00F0) >> 4;
-        if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
+        if((x >= 0 && x < 16) && (y >= 0 && y < 16)){
             cpu->V[x] = cpu->V[x] + cpu->V[y];
             if(cpu->V[x] + cpu->V[y] > 255){
                 cpu->V[15] = 1;
@@ -271,7 +271,7 @@ void execute(CPU *cpu,MEMORY *memory,WORD instruction){
     }else if((instruction & 0xF00F) == SUB_X_Y){
         BYTE x = (instruction & 0x0F00) >> 8;
         BYTE y = (instruction & 0x00F0) >> 4;
-        if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
+        if((x >= 0 && x < 16) && (y >= 0 && y < 16)){
             cpu->V[x] = cpu->V[x] - cpu->V[y];
             if(cpu->V[x] > cpu->V[y]){
                 cpu->V[15] = 1;
@@ -281,7 +281,7 @@ void execute(CPU *cpu,MEMORY *memory,WORD instruction){
         }
     }else if((instruction & 0xF00F) == SHR_X_Y){
         BYTE x = (instruction & 0x0F00) >> 8;
-        if((x >= 0 && x <= 16)){
+        if((x >= 0 && x < 16)){
             cpu->V[x] =  cpu->V[x] >> 1;
             if((cpu->V[x] & 0x0001) == 1){
                 cpu->V[15] = 1;
@@ -293,7 +293,7 @@ void execute(CPU *cpu,MEMORY *memory,WORD instruction){
     }else if((instruction & 0xF00F) == SUBN_X_Y){
         BYTE x = (instruction & 0x0F00) >> 8;
         BYTE y = (instruction & 0x00F0) >> 4;
-        if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
+        if((x >= 0 && x < 16) && (y >= 0 && y < 16)){
             cpu->V[x] = cpu->V[y] - cpu->V[x];
             if(cpu->V[y] > cpu->V[x]){
                 cpu->V[15] = 1;
@@ -303,7 +303,7 @@ void execute(CPU *cpu,MEMORY *memory,WORD instruction){
         }
     }else if((instruction & 0xF00F) == SHL_X_Y){
         BYTE x = (instruction & 0x0F00) >> 8;
-        if((x >= 0 && x <= 16)){
+        if((x >= 0 && x < 16)){
             cpu->V[x] = cpu->V[x] << 1;
             if((cpu->V[x] & 0x8000) == 1){
                 cpu->V[15] = 1;
@@ -314,7 +314,7 @@ void execute(CPU *cpu,MEMORY *memory,WORD instruction){
     }else if((instruction & 0xF000) == SNE_X_Y){
         BYTE x = (instruction & 0x0F00) >> 8;
         BYTE y = (instruction & 0x00F0) >> 4;
-        if((x >= 0 && x <= 16) && (y >= 0 && y <= 16)){
+        if((x >= 0 && x < 16) && (y >= 0 && y < 16)){
             if(cpu->V[x] != cpu->V[y]){
                 cpu->PC += 2;
             }
@@ -325,33 +325,33 @@ void execute(CPU *cpu,MEMORY *memory,WORD instruction){
         cpu->PC = (instruction & 0x0FFF) + cpu->V[0];
     }else if((instruction & 0xF000) == RND_X){
         BYTE x = (instruction & 0x0F00) >> 8;
-         if((x >= 0 && x <= 16)){
+         if((x >= 0 && x < 16)){
             BYTE rnd_num = rand() % 256;
             cpu->V[x] = rnd_num & (instruction & 0x00FF);
          }
     }else if((instruction & 0xF0FF) == LD_X_DT){
         BYTE x = (instruction & 0x0F00) >> 8;
-        if((x >= 0 && x <= 16)){
+        if((x >= 0 && x < 16)){
             cpu->V[x] = cpu->Vdelay;
         }
     }else if((instruction & 0xF0FF) == LD_DT_X){
         BYTE x = (instruction & 0x0F00) >> 8;
-        if((x >= 0 && x <= 16)){
+        if((x >= 0 && x < 16)){
             cpu->Vdelay = cpu->V[x];
         }
     }else if((instruction & 0xF0FF) == LD_ST_X){
         BYTE x = (instruction & 0x0F00) >> 8;
-        if((x >= 0 && x <= 16)){
+        if((x >= 0 && x < 16)){
             cpu->Vsound = cpu->V[x];
         }
     }else if((instruction & 0xF0FF) == ADD_I_X){
         BYTE x = (instruction & 0x0F00) >> 8;
-        if((x >= 0 && x <= 16)){
+        if((x >= 0 && x < 16)){
             cpu->I += cpu->V[x];
         }
     }else if((instruction & 0xF0FF) == LD_B_X){
         BYTE x = (instruction & 0x0F00) >> 8;
-        if((x >= 0 && x <= 16) && (cpu->I >= 200)){
+        if((x >= 0 && x < 16) && (cpu->I >= 200)){
             //Hundreds at cpu->I
             memory->memory[cpu->I] = cpu->V[x] / 100;
             //Tens at cpu->I+1
@@ -361,21 +361,21 @@ void execute(CPU *cpu,MEMORY *memory,WORD instruction){
         }
     }else if((instruction & 0xF0FF) == SA_I_X){
         BYTE x = (instruction & 0x0F00) >> 8;
-        if((x >= 0 && x <= 16) && (cpu->I >= 200)){
+        if((x >= 0 && x < 16) && (cpu->I >= 200)){
             for(int i=0; i<x; i++){
                 memory->memory[cpu->I+i] = cpu->V[i];
             }
         }
     }else if((instruction & 0xF0FF) == LA_X_I){
         BYTE x = (instruction & 0x0F00) >> 8;
-        if((x >= 0 && x <= 16) && (cpu->I >= 200)){
+        if((x >= 0 && x < 16) && (cpu->I >= 200)){
             for(int i=0; i<x; i++){
                 cpu->V[i] = memory->memory[cpu->I+i] ;
             }
         }
     }else if((instruction & 0xF0FF) == LD_F_X){
         BYTE x = (instruction & 0x0F00) >> 8;
-        if((x >= 0 && x <= 16)){
+        if((x >= 0 && x < 16)){
             cpu->I = cpu->V[x] * 5;
         }
     }else if((instruction & 0xF000) == DRW_X_Y_N){
@@ -411,21 +411,21 @@ void execute(CPU *cpu,MEMORY *memory,WORD instruction){
         }
     }else if((instruction & 0xF0FF) == SKP_X){
         BYTE x = (instruction & 0x0F00) >> 8;
-        if((x >= 0 && x <= 16)){
+        if((x >= 0 && x < 16)){
             if((GetAsyncKeyState(cpu->V[x]) & 0xF000) >= 0x8000){
                 cpu->PC+=2;
             }
         }
     }else if((instruction & 0xF0FF) == SKNP_X){
         BYTE x = (instruction & 0x0F00) >> 8;
-        if((x >= 0 && x <= 16)){
+        if((x >= 0 && x < 16)){
             if((GetAsyncKeyState(cpu->V[x]) & 0xF000) < 0x8000){
                 cpu->PC+=2;
             }
         }
     }else if((instruction & LD_X_KEY)){
         BYTE x = (instruction & 0x0F00) >> 8;
-        if((x >= 0 && x <= 16)){
+        if((x >= 0 && x < 16)){
             for (int i = 0; i < 16; i++) {
                 if (GetAsyncKeyState(keymap[i]) & 0x8000) {
                     cpu->V[x] = keymap[i];
